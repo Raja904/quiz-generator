@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
-import { BrainCircuit, LogOut, Upload, FileText, Loader2, ArrowRight, BookOpen, AlertCircle, CheckCircle2 } from "lucide-react";
+import { BrainCircuit, LogOut, Upload, FileText, Loader2, ArrowRight, BookOpen, AlertCircle, CheckCircle2, BarChart, Target } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 
@@ -45,6 +45,7 @@ export default function Dashboard() {
   // History State
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [fetchingHistory, setFetchingHistory] = useState(false);
+  const [analytics, setAnalytics] = useState<{ total_quizzes: number, total_questions: number } | null>(null);
   
   const router = useRouter();
 
@@ -57,11 +58,23 @@ export default function Dashboard() {
         setUser(session.user);
         setSessionToken(session.access_token);
         fetchQuizzes(session.access_token);
+        fetchAnalytics(session.access_token);
       }
       setLoading(false);
     };
     checkUser();
   }, [router]);
+
+  const fetchAnalytics = async (token: string) => {
+    try {
+      const res = await axios.get(`${API_BASE}/analytics`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAnalytics(res.data);
+    } catch (err) {
+      console.error("Failed to fetch analytics", err);
+    }
+  };
 
   const fetchQuizzes = async (token: string) => {
     setFetchingHistory(true);
@@ -234,9 +247,34 @@ export default function Dashboard() {
           
           {/* Top/Middle Section: Upload or Config */}
           <section className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-slate-500 dark:text-slate-400">Upload a new PDF to generate an interactive quiz.</p>
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                <p className="text-slate-500 dark:text-slate-400 mt-1">Upload a new PDF to generate an interactive quiz.</p>
+              </div>
+              
+              {analytics && (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 shadow-sm">
+                    <div className="bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg text-indigo-600 dark:text-indigo-400">
+                      <BarChart className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Total Quizzes</p>
+                      <p className="text-lg font-bold leading-none mt-1">{analytics.total_quizzes}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 shadow-sm">
+                    <div className="bg-green-50 dark:bg-green-900/30 p-2 rounded-lg text-green-600 dark:text-green-400">
+                      <Target className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Questions Answered</p>
+                      <p className="text-lg font-bold leading-none mt-1">{analytics.total_questions}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {error && (

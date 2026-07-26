@@ -205,6 +205,85 @@ def call_llm(
     return record
 
 
+async def acall_llm(
+    system_prompt: str,
+    user_prompt: str,
+    model: str,
+    chunk_index: int = 0,
+    temperature: float = 0.4,
+) -> LLMCallRecord:
+    """
+    Asynchronous version of call_llm.
+    """
+    record = LLMCallRecord(
+        chunk_index=chunk_index,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        model=model,
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    last_error: Exception | None = None
+    for attempt in range(1, MAX_RETRIES + 2):
+        try:
+            start = time.perf_counter()
+
+            completion_kwargs: dict[str, Any] = dict(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+            )
+            if _supports_json_mode(model):
+                completion_kwargs["response_format"] = {"type": "json_object"}
+
+            response = await litellm.acompletion(**completion_kwargs)
+            latency = time.perf_counter() - start
+
+            raw_content: str = response.choices[0].message.content or ""
+            tokens = getattr(response.usage, "total_tokens", 0) or 0
+
+            record.raw_response = raw_content
+            record.latency_seconds = latency
+            record.tokens_used = tokens
+
+            logger.info(
+                "LLM call (async) | chunk=%d model=%s attempt=%d latency=%.3fs tokens=%s",
+                chunk_index,
+                model,
+                attempt,
+                latency,
+                tokens,
+            )
+
+            parsed = _extract_json_array(raw_content)
+            record.parsed_questions = parsed
+            record.success = True
+            return record
+
+        except ValueError as exc:
+            last_error = exc
+            record.error = str(exc)
+            logger.warning(
+                "JSON parse failed chunk=%d (attempt %d/%d): %s",
+                chunk_index, attempt, MAX_RETRIES + 1, exc,
+            )
+        except Exception as exc:
+            last_error = exc
+            record.error = str(exc)
+            logger.warning(
+                "LLM call failed chunk=%d (attempt %d/%d): %s",
+                chunk_index, attempt, MAX_RETRIES + 1, exc,
+            )
+
+    record.success = False
+    record.error = str(last_error)
+    return record
+
+
 def _supports_json_mode(model: str) -> bool:
     """Return True if the model is known to support response_format=json_object."""
     json_mode_models = {

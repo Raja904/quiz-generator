@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
-import { BrainCircuit, Loader2, ArrowRight, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { BrainCircuit, Loader2, ArrowRight, ArrowLeft, CheckCircle2, Copy } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 
@@ -84,6 +84,32 @@ export default function QuizInterface() {
     router.push(`/results/${quizId}`);
   };
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyQuiz = async () => {
+    if (!quiz) return;
+    
+    let textToCopy = `Quiz: ${quiz.filename}\n\n`;
+    
+    quiz.questions.forEach((q, idx) => {
+      textToCopy += `Q${idx + 1}: ${q.question}\n`;
+      q.options.forEach((opt, oIdx) => {
+        const letter = String.fromCharCode(65 + oIdx);
+        textToCopy += `${letter}) ${opt}\n`;
+      });
+      textToCopy += `Answer: ${q.correct_answer}\n`;
+      textToCopy += `Explanation: ${q.explanation}\n\n`;
+    });
+
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy text: ", err);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
@@ -119,9 +145,28 @@ export default function QuizInterface() {
             <ArrowLeft className="h-5 w-5" />
             Exit Quiz
           </Link>
-          <div className="flex items-center gap-2 font-semibold">
-            <BrainCircuit className="h-5 w-5 text-indigo-600" />
-            <span className="hidden sm:inline-block truncate max-w-[200px]">{quiz.filename}</span>
+          <div className="flex items-center gap-4 font-semibold">
+            <button
+              onClick={handleCopyQuiz}
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900 dark:hover:text-slate-50"
+              title="Copy all questions and answers"
+            >
+              {copied ? (
+                <>
+                  <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Quiz
+                </>
+              )}
+            </button>
+            <div className="hidden sm:flex items-center gap-2">
+              <BrainCircuit className="h-5 w-5 text-indigo-600" />
+              <span className="truncate max-w-[200px]">{quiz.filename}</span>
+            </div>
           </div>
         </div>
       </header>

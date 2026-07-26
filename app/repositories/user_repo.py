@@ -15,13 +15,20 @@ class UserRepository(BaseRepository[User]):
         result = await self.db_session.execute(stmt)
         user = result.scalar_one_or_none()
 
+        from datetime import datetime, timezone
+
         if not user:
             user = User(
                 id=user_id,
                 email=email,
                 full_name=full_name,
+                last_login=datetime.now(timezone.utc),
             )
             self.add(user)
+            await self.db_session.commit()
+            await self.db_session.refresh(user)
+        else:
+            user.last_login = datetime.now(timezone.utc)
             await self.db_session.commit()
             await self.db_session.refresh(user)
 

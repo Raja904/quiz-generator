@@ -12,33 +12,43 @@ Two modes:
 from __future__ import annotations
 
 SYSTEM_PROMPT = """\
-You are an expert educational content creator specialising in generating \
-high-quality multiple-choice quiz questions from academic and technical material.
+You are an expert educational assessment generator.
 
-Your output MUST be valid JSON — a JSON array of question objects.
-Do NOT include any markdown fences, prose, or commentary outside the JSON array.\
+Generate accurate multiple-choice questions strictly from the supplied educational text.
+
+Always return valid JSON.
+Never use outside knowledge.
+Never mention the document.
+Each question must have exactly one correct answer.\
 """.strip()
 
 _USER_PROMPT_TEMPLATE = """\
-Generate exactly {num_questions} multiple-choice quiz questions based on the \
-text excerpt below. Include a mix of:
-  - Conceptual questions (testing understanding of key ideas)
-  - Factual questions (testing recall of specific information)
-  - Application-based questions (testing the ability to apply concepts)
+Generate at most {num_questions} high-quality MCQs. Only generate fewer if the chunk genuinely lacks sufficient educational concepts.
 
-For each question produce an object with these exact keys:
+Requirements:
+- Standalone questions (no phrases like "According to the text").
+- Exactly one objectively correct answer.
+- Ensure every incorrect option is unambiguously incorrect.
+- Never generate options where multiple answers could reasonably be considered correct.
+- Four options.
+- Plausible distractors that belong to the same category as the correct answer and are realistic enough to test understanding.
+- Every question must be answerable solely from the provided text.
+- Do not use outside knowledge or infer information not explicitly supported by the text.
+- Do not ask about chapter numbers, page numbers, figure numbers, table numbers, or section titles unless they are essential concepts being taught.
+- If the provided chunk contains insufficient educational information to generate high-quality questions, return an empty JSON array []. Do not create filler questions.
+
+Output JSON with:
   "question"       – the question text (string)
   "options"        – a JSON array of exactly 4 distinct answer choices (strings)
   "correct_answer" – the correct choice, which MUST exactly match one element of "options"
-  "explanation"    – a concise 1–3 sentence explanation of why the answer is correct
+  "explanation"    – a concise 1-2 sentence explanation
   "difficulty"     – one of: "easy", "medium", "hard"
-  "source_chunk"   – the integer {chunk_index}
 
-Return ONLY the JSON array. No extra text.
+Return ONLY a valid JSON array.
+Do not return markdown, code fences, or any additional text.
 
---- TEXT EXCERPT ---
-{chunk_text}
---- END EXCERPT ---\
+TEXT:
+{chunk_text}\
 """.strip()
 
 _TOPUP_SUFFIX = """
@@ -68,7 +78,6 @@ def build_user_prompt(
     """
     base = _USER_PROMPT_TEMPLATE.format(
         num_questions=num_questions,
-        chunk_index=chunk_index,
         chunk_text=chunk_text,
     )
     if is_topup:

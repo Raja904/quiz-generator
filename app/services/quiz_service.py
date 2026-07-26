@@ -24,6 +24,7 @@ No data is written to disk.  The runs/ directory has been removed.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass, field
@@ -34,7 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.models import User
 from app.repositories.quiz_repo import QuizRepository
-from app.llm.llm_client import LLMCallRecord, call_llm
+from app.llm.llm_client import LLMCallRecord, acall_llm
 from app.models.schemas import (
     ChunkingStats,
     DifficultyLevel,
@@ -50,6 +51,7 @@ from app.utils.adaptive_chunker import (
     distribute_questions,
 )
 from app.utils.chunker import TextChunk, chunk_text
+from app.utils.chunk_filter import is_educational_chunk
 from app.utils.text_cleaner import clean_text
 from app.utils.deduplicator import deduplicate_questions
 from app.utils.validators import validate_page_range, validate_question_count
@@ -107,14 +109,15 @@ def _validate_question(raw: dict, chunk_index: int) -> QuizQuestion | None:
 
 # ── Per-chunk LLM call ─────────────────────────────────────────────────────────
 
-def _call_chunk(
+async def _acall_chunk(
     chunk: TextChunk,
     num_questions: int,
     llm_model: str,
+    semaphore: asyncio.Semaphore,
     is_topup: bool = False,
 ) -> list[QuizQuestion]:
     """
-    Call the LLM for one chunk and return validated questions.
+    Call the LLM for one chunk concurrently and return validated questions.
 
     The llm_client already retries on transient errors / JSON parse failures
     (MAX_RETRIES = 2 attempts before marking the call failed).
@@ -126,12 +129,13 @@ def _call_chunk(
         is_topup=is_topup,
     )
 
-    record: LLMCallRecord = call_llm(
-        system_prompt=SYSTEM_PROMPT,
-        user_prompt=user_prompt,
-        model=llm_model,
-        chunk_index=chunk.index,
-    )
+    async with semaphore:
+        record: LLMCallRecord = await acall_llm(
+            system_prompt=SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            model=llm_model,
+            chunk_index=chunk.index,
+        )
 
     validated: list[QuizQuestion] = []
     if record.success:
@@ -166,9 +170,10 @@ class _ChunkResult:
         return max(0, self.assigned - len(self.questions))
 
 
-def _topup(
+async def _atopup(
     results: list[_ChunkResult],
     llm_model: str,
+    semaphore: asyncio.Semaphore,
     remaining_deficit: int,
 ) -> list[QuizQuestion]:
     """
@@ -195,19 +200,30 @@ def _topup(
             len(deficient),
         )
 
+        # Build tasks to run concurrently in this round
+        tasks = []
+        task_res_map = []
+
         for res in deficient:
             if remaining_deficit <= 0:
                 break
             need = min(res.deficit, remaining_deficit)
-            new_questions = _call_chunk(
+            tasks.append(_acall_chunk(
                 chunk=res.chunk,
                 num_questions=need,
                 llm_model=llm_model,
+                semaphore=semaphore,
                 is_topup=True,
-            )
+            ))
+            task_res_map.append((res, need))
+            remaining_deficit -= need
+
+        # Wait for all top-up requests in this round
+        round_results = await asyncio.gather(*tasks)
+
+        for (res, _), new_questions in zip(task_res_map, round_results):
             res.questions.extend(new_questions)
             extra.extend(new_questions)
-            remaining_deficit -= len(new_questions)
 
     return extra
 
@@ -316,20 +332,35 @@ async def generate_quiz(
 
     logger.info("Chunked | num_chunks=%d", len(chunks))
 
+    # ── Step 7.5: Pre-filter ───────────────────────────────────────────────────
+    filtered_chunks = [c for c in chunks if is_educational_chunk(c.text)]
+    if not filtered_chunks:
+        raise RuntimeError("No educational chunks were produced. Cannot generate quiz.")
+
+    logger.info("Filtered | useful_chunks=%d", len(filtered_chunks))
+
     # ── Step 8: Distribute questions per chunk ─────────────────────────────────
-    q_per_chunk: list[int] = distribute_questions(len(chunks), total_questions)
+    q_per_chunk: list[int] = distribute_questions(len(filtered_chunks), total_questions)
     logger.info("Question distribution: %s (sum=%d)", q_per_chunk, sum(q_per_chunk))
 
-    # ── Step 9: Initial LLM pass ───────────────────────────────────────────────
+    # ── Step 9: Initial LLM pass (Concurrent) ──────────────────────────────────
     results: list[_ChunkResult] = []
-    for chunk, n_q in zip(chunks, q_per_chunk):
+    
+    semaphore = asyncio.Semaphore(5)
+    tasks = []
+    
+    for chunk, n_q in zip(filtered_chunks, q_per_chunk):
         logger.info(
-            "LLM call | chunk[%d]  tokens=%d  questions_requested=%d",
+            "LLM call setup | chunk[%d]  tokens=%d  questions_requested=%d",
             chunk.index,
             chunk.token_count,
             n_q,
         )
-        questions = _call_chunk(chunk, num_questions=n_q, llm_model=llm_model)
+        tasks.append(_acall_chunk(chunk, num_questions=n_q, llm_model=llm_model, semaphore=semaphore))
+        
+    chunk_responses = await asyncio.gather(*tasks)
+    
+    for chunk, n_q, questions in zip(filtered_chunks, q_per_chunk, chunk_responses):
         results.append(_ChunkResult(chunk=chunk, assigned=n_q, questions=questions))
 
     all_questions: list[QuizQuestion] = [q for r in results for q in r.questions]
@@ -352,7 +383,7 @@ async def generate_quiz(
 
     if initial_deficit > 0:
         logger.info("Shortfall detected — starting top-up pass(es).")
-        extra = _topup(results, llm_model=llm_model, remaining_deficit=initial_deficit)
+        extra = await _atopup(results, llm_model=llm_model, semaphore=semaphore, remaining_deficit=initial_deficit)
         all_questions.extend(extra)
         
         # Deduplicate again after top-up just in case

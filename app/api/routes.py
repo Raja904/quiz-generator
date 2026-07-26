@@ -18,7 +18,7 @@ from app.api.deps import DbSession, get_current_user
 from app.core.config import settings
 from app.db.models import User
 from app.repositories.quiz_repo import QuizRepository
-from app.models.schemas import HealthResponse, PDFInfoResponse, QuizResponse, QuizzesResponse, QuizDetailResponse, QuizListItem
+from app.models.schemas import HealthResponse, PDFInfoResponse, QuizResponse, QuizzesResponse, QuizDetailResponse, QuizListItem, AnalyticsResponse
 from app.parsers.pdf_parser import PDFParseError, parse_pdf
 from app.services.quiz_service import generate_quiz
 from uuid import UUID
@@ -345,6 +345,26 @@ async def list_quizzes(
         )
 
     return QuizzesResponse(quizzes=quizzes)
+
+
+@router.get(
+    "/analytics",
+    response_model=AnalyticsResponse,
+    summary="Get user quiz analytics",
+    tags=["Analytics"],
+)
+async def get_analytics(
+    user: User = Depends(get_current_user),
+    db: DbSession = None,
+) -> AnalyticsResponse:
+    """Returns analytics data (total quizzes, total questions) for the user."""
+    from app.models.schemas import AnalyticsResponse
+    quiz_repo = QuizRepository(db)
+    total_quizzes, total_questions = await quiz_repo.get_user_analytics(user.id)
+    return AnalyticsResponse(
+        total_quizzes=total_quizzes,
+        total_questions=total_questions,
+    )
 
 
 # ── GET /quizzes/{quiz_id} ─────────────────────────────────────────────────────

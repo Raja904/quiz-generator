@@ -138,6 +138,12 @@ class QuizzesResponse(BaseModel):
     quizzes: list[QuizListItem]
 
 
+class AnalyticsResponse(BaseModel):
+    """Response for GET /analytics."""
+    total_quizzes: int
+    total_questions: int
+
+
 class QuizDetailResponse(BaseModel):
     """Response for GET /quizzes/{quiz_id}."""
     model_config = ConfigDict(from_attributes=True)

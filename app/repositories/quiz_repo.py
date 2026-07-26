@@ -23,6 +23,24 @@ class QuizRepository(BaseRepository[Quiz]):
         result = await self.db_session.execute(stmt)
         return result.all()
 
+    async def get_user_analytics(self, user_id: UUID) -> tuple[int, int]:
+        """Returns (total_quizzes, total_questions) for a user."""
+        from sqlalchemy import func
+        stmt = (
+            select(
+                func.count(Quiz.id),
+                func.sum(Quiz.total_questions)
+            )
+            .where(Quiz.user_id == user_id)
+        )
+        result = await self.db_session.execute(stmt)
+        row = result.first()
+        if row:
+            total_quizzes = row[0] or 0
+            total_questions = row[1] or 0
+            return total_quizzes, total_questions
+        return 0, 0
+
     async def get_quiz_with_details(self, quiz_id: UUID, user_id: UUID) -> Quiz | None:
         """Returns a quiz by ID including its metadata and questions."""
         stmt = (
