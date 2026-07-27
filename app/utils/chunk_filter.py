@@ -59,12 +59,5 @@ def is_educational_chunk(text: str) -> bool:
     # Heuristic 2: Length
     if total_words < 20:
         return False
-        
-    # Heuristic 3: Prose Density (Average words per line)
-    # A normal paragraph has 10+ words per line.
-    # TOCs and Indexes usually have very short lines with page numbers.
-    avg_words_per_line = total_words / len(lines)
-    if avg_words_per_line < 5:
-        return False
 
     return True
