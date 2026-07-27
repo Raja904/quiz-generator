@@ -21,9 +21,9 @@ class Settings(BaseSettings):
     llm_model: str = "mistral/mistral-small-latest"
 
     # ── Adaptive chunking (derived per-request from total_tokens + total_questions)
-    min_chunk_size: int = 300        # token floor for a single chunk
+    min_chunk_size: int = 600        # token floor for a single chunk
     max_chunk_size: int = 3000       # token ceiling for a single chunk
-    chunk_overlap_ratio: float = 0.10  # fraction of chunk_size used as overlap
+    chunk_overlap_ratio: float = 0.166  # fraction of chunk_size used as overlap (~100 at 600 size)
 
     # ── Database & Auth (Supabase) ────────────────────────────────────────────
     supabase_url: str = ""
