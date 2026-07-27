@@ -58,6 +58,7 @@ class QuizRepository(BaseRepository[Quiz]):
         total_pages: int,
         total_tokens: int,
         llm_model: str,
+        requested_questions: int,
         final_generated: int,
         all_questions: list,
     ) -> tuple[PDFMetadata, Quiz]:
@@ -78,7 +79,7 @@ class QuizRepository(BaseRepository[Quiz]):
             user_id=user_id,
             pdf_metadata_id=db_metadata.id,
             llm_model=llm_model,
-            total_questions=final_generated,
+            total_questions=requested_questions,  # store what user REQUESTED, not what was generated
         )
         self.db_session.add(db_quiz)
         await self.db_session.flush()

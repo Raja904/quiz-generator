@@ -496,6 +496,7 @@ async def generate_quiz(
         total_pages=parse_result.total_pages,
         total_tokens=total_tokens,
         llm_model=llm_model,
+        requested_questions=total_questions,
         final_generated=len(final_questions),
         all_questions=final_questions,
     )
