@@ -415,7 +415,7 @@ async def generate_quiz(
     )
 
     # ── Step 9: Initial LLM pass (Concurrent) ─────────────────────────────────
-    semaphore = asyncio.Semaphore(5)
+    semaphore = asyncio.Semaphore(3)  # max 3 concurrent LLM calls to avoid rate-limiting/freeze
     tasks = [
         _acall_chunk(
             chunk=chunk,
