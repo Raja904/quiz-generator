@@ -160,6 +160,8 @@ def call_llm(
             )
             if _supports_json_mode(model):
                 completion_kwargs["response_format"] = {"type": "json_object"}
+            
+            completion_kwargs["timeout"] = 60  # Add a 60 second timeout per LLM request to prevent indefinite hanging
 
             response = litellm.completion(**completion_kwargs)
             latency = time.perf_counter() - start
@@ -239,6 +241,8 @@ async def acall_llm(
             )
             if _supports_json_mode(model):
                 completion_kwargs["response_format"] = {"type": "json_object"}
+            
+            completion_kwargs["timeout"] = 60  # Add a 60 second timeout per LLM request to prevent indefinite hanging
 
             response = await litellm.acompletion(**completion_kwargs)
             latency = time.perf_counter() - start
