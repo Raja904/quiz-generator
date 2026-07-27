@@ -20,10 +20,15 @@ class Settings(BaseSettings):
     # ── LLM ───────────────────────────────────────────────────────────────────
     llm_model: str = "mistral/mistral-small-latest"
 
-    # ── Adaptive chunking (derived per-request from total_tokens + total_questions)
-    min_chunk_size: int = 600        # token floor for a single chunk
-    max_chunk_size: int = 3000       # token ceiling for a single chunk
-    chunk_overlap_ratio: float = 0.166  # fraction of chunk_size used as overlap (~100 at 600 size)
+    # ── Semantic chunking (fixed, independent of question count) ──────────────
+    preferred_chunk_size: int = 1000  # target tokens per chunk
+    min_chunk_size: int = 700         # floor — chunks below this are merged or skipped
+    max_chunk_size: int = 1500        # ceiling
+    chunk_overlap: int = 100          # fixed overlap between adjacent chunks
+
+    # ── Questions per chunk (over-generate then trim) ──────────────────────────
+    min_questions_per_chunk: int = 2
+    max_questions_per_chunk: int = 5
 
     # ── Database & Auth (Supabase) ────────────────────────────────────────────
     supabase_url: str = ""

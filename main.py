@@ -33,11 +33,11 @@ logger = logging.getLogger(__name__)
 async def lifespan(app):
     logger.info(
         "PDF-to-Quiz API started | version=%s  model=%s  "
-        "chunk_range=[%d–%d tokens]  max_pages=%d",
+        "chunk_size=%d tokens  overlap=%d  max_pages=%d",
         settings.app_version,
         settings.llm_model,
-        settings.min_chunk_size,
-        settings.max_chunk_size,
+        settings.preferred_chunk_size,
+        settings.chunk_overlap,
         settings.max_pages_per_request,
     )
     yield
