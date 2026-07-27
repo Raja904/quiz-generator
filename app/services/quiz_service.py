@@ -364,7 +364,7 @@ async def generate_quiz(
         
     chunk_responses = await asyncio.gather(*tasks)
     
-    for chunk, n_q, questions in zip(filtered_chunks, q_per_chunk, chunk_responses):
+    for chunk, n_q, questions in zip(chunks, q_per_chunk, chunk_responses):
         results.append(_ChunkResult(chunk=chunk, assigned=n_q, questions=questions))
 
     all_questions: list[QuizQuestion] = [q for r in results for q in r.questions]
