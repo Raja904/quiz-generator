@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -94,6 +95,9 @@ def _validate_question(raw: dict, chunk_index: int) -> QuizQuestion | None:
                 question.options,
             )
             return None
+
+        # Shuffle the options randomly so the correct answer isn't always at the same index
+        random.shuffle(question.options)
 
         return question
 
