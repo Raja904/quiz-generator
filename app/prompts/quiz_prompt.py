@@ -12,9 +12,9 @@ Two modes:
 from __future__ import annotations
 
 SYSTEM_PROMPT = """\
-You are an expert educational assessment generator.
+You are an expert assessment generator.
 
-Generate accurate multiple-choice questions strictly from the supplied educational text.
+Generate accurate multiple-choice questions strictly from the supplied text.
 
 Always return valid JSON.
 Never use outside knowledge.
@@ -23,7 +23,7 @@ Each question must have exactly one correct answer.\
 """.strip()
 
 _USER_PROMPT_TEMPLATE = """\
-Generate at most {num_questions} high-quality MCQs. Only generate fewer if the chunk genuinely lacks sufficient educational concepts.
+Generate at most {num_questions} high-quality MCQs. Only generate fewer if the chunk genuinely lacks sufficient testable facts or concepts.
 
 Requirements:
 - Standalone questions (no phrases like "According to the text").
@@ -34,9 +34,9 @@ Requirements:
 - Plausible distractors that belong to the same category as the correct answer and are realistic enough to test understanding.
 - Every question must be answerable solely from the provided text.
 - Do not use outside knowledge or infer information not explicitly supported by the text.
-- Do not ask about chapter numbers, page numbers, figure numbers, table numbers, or section titles unless they are essential concepts being taught.
+- Do not ask about chapter numbers, page numbers, figure numbers, table numbers, or section titles.
 - Do NOT ask meta-questions about the document itself (e.g., "What is the primary focus of this document?", "What is in the contents section?").
-- If the provided chunk contains insufficient educational information to generate high-quality questions, return an empty JSON array []. Do not create filler questions.
+- If the provided chunk genuinely contains no testable facts or concepts, return an empty JSON array []. Do not create filler questions.
 
 Output JSON with:
   "question"       – the question text (string)
