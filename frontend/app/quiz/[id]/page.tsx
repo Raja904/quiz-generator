@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabase/client";
-import { BrainCircuit, Loader2, ArrowRight, ArrowLeft, CheckCircle2, Copy } from "lucide-react";
+import { BrainCircuit, Loader2, ArrowRight, ArrowLeft, CheckCircle2, Copy, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import axios from "axios";
 
@@ -186,6 +186,19 @@ export default function QuizInterface() {
             />
           </div>
         </div>
+
+        {/* Shortfall Banner — shown when fewer questions were generated than requested */}
+        {quiz.questions.length < quiz.total_questions && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              We generated <strong>{quiz.questions.length}</strong> of the requested{" "}
+              <strong>{quiz.total_questions}</strong> questions. The remaining questions were
+              skipped because they did not meet our quality standards or would have duplicated
+              existing concepts from the selected pages.
+            </p>
+          </div>
+        )}
 
         {/* Question Card */}
         <div className="flex-1">
