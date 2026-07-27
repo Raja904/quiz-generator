@@ -35,6 +35,7 @@ Requirements:
 - Every question must be answerable solely from the provided text.
 - Do not use outside knowledge or infer information not explicitly supported by the text.
 - Do not ask about chapter numbers, page numbers, figure numbers, table numbers, or section titles unless they are essential concepts being taught.
+- Do NOT ask meta-questions about the document itself (e.g., "What is the primary focus of this document?", "What is in the contents section?").
 - If the provided chunk contains insufficient educational information to generate high-quality questions, return an empty JSON array []. Do not create filler questions.
 
 Output JSON with:

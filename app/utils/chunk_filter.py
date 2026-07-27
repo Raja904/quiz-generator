@@ -44,14 +44,13 @@ def is_educational_chunk(text: str) -> bool:
     if not lines:
         return False
 
-    # Heuristic 1: Check first line against skip headers
-    first_line_lower = lines[0].lower()
-    
-    # Strip common numbering/punctuation (e.g. "1. Table of Contents" -> "table of contents")
-    clean_first_line = re.sub(r"^[\d\.\s\-]+", "", first_line_lower).strip()
-    
-    if clean_first_line in _SKIP_HEADERS or first_line_lower in _SKIP_HEADERS:
-        return False
+    # Heuristic 1: Check first few lines against skip headers
+    # Some PDFs have a universal header (like "VOLUME 25 |") before the actual section title
+    for line in lines[:5]:
+        line_lower = line.lower()
+        clean_line = re.sub(r"^[\d\.\s\-]+", "", line_lower).strip()
+        if clean_line in _SKIP_HEADERS or line_lower in _SKIP_HEADERS:
+            return False
 
     # Calculate word statistics
     words = text.split()

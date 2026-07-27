@@ -300,9 +300,20 @@ async def generate_quiz(
         allowed_counts=settings.allowed_question_counts,
     )
 
-    # ── Step 4: Clean ──────────────────────────────────────────────────────────
-    cleaned = clean_text(parse_result.text)
-    logger.info("Cleaned | chars=%d", len(cleaned))
+    # ── Step 4: Clean & Pre-filter Pages ───────────────────────────────────────
+    # We clean and filter each page BEFORE combining them to prevent a dense page
+    # from artificially saving a sparse Table of Contents page when chunked.
+    educational_pages = []
+    for page_text in parse_result.pages:
+        cleaned_page = clean_text(page_text)
+        if is_educational_chunk(cleaned_page):
+            educational_pages.append(cleaned_page)
+            
+    if not educational_pages:
+        raise RuntimeError("No educational content found after filtering pages (e.g. Table of Contents, Index).")
+        
+    cleaned = "\n\n".join(educational_pages)
+    logger.info("Cleaned & Filtered | chars=%d  pages_retained=%d/%d", len(cleaned), len(educational_pages), len(parse_result.pages))
 
     # ── Step 5: Count tokens ───────────────────────────────────────────────────
     total_tokens = count_tokens(cleaned)
@@ -332,15 +343,8 @@ async def generate_quiz(
 
     logger.info("Chunked | num_chunks=%d", len(chunks))
 
-    # ── Step 7.5: Pre-filter ───────────────────────────────────────────────────
-    filtered_chunks = [c for c in chunks if is_educational_chunk(c.text)]
-    if not filtered_chunks:
-        raise RuntimeError("No educational chunks were produced. Cannot generate quiz.")
-
-    logger.info("Filtered | useful_chunks=%d", len(filtered_chunks))
-
     # ── Step 8: Distribute questions per chunk ─────────────────────────────────
-    q_per_chunk: list[int] = distribute_questions(len(filtered_chunks), total_questions)
+    q_per_chunk: list[int] = distribute_questions(len(chunks), total_questions)
     logger.info("Question distribution: %s (sum=%d)", q_per_chunk, sum(q_per_chunk))
 
     # ── Step 9: Initial LLM pass (Concurrent) ──────────────────────────────────
@@ -349,7 +353,7 @@ async def generate_quiz(
     semaphore = asyncio.Semaphore(5)
     tasks = []
     
-    for chunk, n_q in zip(filtered_chunks, q_per_chunk):
+    for chunk, n_q in zip(chunks, q_per_chunk):
         logger.info(
             "LLM call setup | chunk[%d]  tokens=%d  questions_requested=%d",
             chunk.index,
