@@ -1,147 +1,275 @@
-# PDF-to-Quiz Backend MVP
+# PDF-to-Quiz 🎓
 
-An AI-powered backend that converts PDF documents into structured multiple-choice quizzes.
+AI-powered backend that converts PDF documents into structured multiple-choice quizzes using an LLM.
+
+---
 
 ## Architecture
 
-```
-PDF Upload → PyMuPDF Parser → Text Cleaner → Token-aware Chunker → LiteLLM → Structured Quiz JSON
-```
+| Component  | Technology                          | Deployment         |
+|------------|-------------------------------------|--------------------|
+| Frontend   | Next.js                             | Vercel             |
+| Backend    | FastAPI + Gunicorn + Uvicorn        | Azure App Service (Docker) |
+| Database   | PostgreSQL                          | Supabase           |
+| LLM        | Mistral (via LiteLLM)               | Mistral API        |
 
-## Quick Start
+---
 
-### 1. Prerequisites
+## 1. Local Development (No Docker Required)
 
-- Python 3.11+
-- [`uv`](https://github.com/astral-sh/uv) package manager
+### Prerequisites
 
-### 2. Install `uv` (if needed)
+- Python ≥ 3.11
+- Node.js ≥ 18
+- A Supabase project
+- A Mistral API key
 
-```powershell
-pip install uv
-```
-
-### 3. Clone and set up
+### Backend Setup
 
 ```bash
-# Install dependencies
-uv pip install -e ".[dev]"
+# 1. Clone the repository
+git clone https://github.com/Raja904/quiz-generator.git
+cd quiz-generator
 
-# Copy env template
+# 2. Create and activate a virtual environment
+python -m venv .venv
+# Windows:
+.venv\Scripts\activate
+# macOS/Linux:
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install -e .
+
+# 4. Configure environment
 cp .env.example .env
-# Edit .env and add your API key
-```
+# Edit .env with your real API keys and database URL
 
-### 4. Configure `.env`
-
-```env
-LLM_MODEL=openai/gpt-4o-mini
-OPENAI_API_KEY=sk-your-key-here
-CHUNK_SIZE=1500
-CHUNK_OVERLAP=150
-QUESTIONS_PER_CHUNK=5
-```
-
-### 5. Run the server
-
-```bash
+# 5. Start the development server (auto-reload)
 uvicorn main:app --reload
 ```
 
-Visit **http://localhost:8000/docs** for the interactive Swagger UI.
+The API will be available at `http://localhost:8000`.  
+Interactive docs: `http://localhost:8000/docs`
 
----
-
-## API Endpoints
-
-### `POST /generate-quiz`
-
-Upload a PDF to generate multiple-choice questions.
-
-**Request:** `multipart/form-data`
-- `file` (required): PDF file
-- `questions_per_chunk` (optional): integer 1–20, overrides server default
-
-**Response:**
-```json
-{
-  "questions": [
-    {
-      "question": "What is the primary goal of machine learning?",
-      "options": ["...", "...", "...", "..."],
-      "correct_answer": "...",
-      "explanation": "...",
-      "difficulty": "medium",
-      "source_chunk": 0
-    }
-  ],
-  "total_questions": 15,
-  "total_chunks": 3,
-  "total_pages": 10
-}
-```
-
-### `GET /health`
-
-```json
-{"status": "ok", "version": "0.1.0"}
-```
-
----
-
-## Supported LLM Providers
-
-Set `LLM_MODEL` in `.env` to any [LiteLLM-supported model](https://docs.litellm.ai/docs/providers):
-
-| Provider   | Example model string                        | Env var             |
-|------------|---------------------------------------------|---------------------|
-| OpenAI     | `openai/gpt-4o-mini`                        | `OPENAI_API_KEY`    |
-| Anthropic  | `anthropic/claude-3-5-haiku-20241022`       | `ANTHROPIC_API_KEY` |
-| Google     | `google/gemini-2.0-flash`                   | `GOOGLE_API_KEY`    |
-
----
-
-## Running Tests
+### Frontend Setup
 
 ```bash
-uv run pytest tests/ -v
+cd frontend
+
+# Install dependencies
+npm install
+
+# Configure environment
+# Create frontend/.env.local with:
+# NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+# NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
+# NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Start the development server
+npm run dev
 ```
+
+The frontend will be available at `http://localhost:3000`.
 
 ---
 
-## Docker
+## 2. Frontend Deployment — Vercel
+
+Vercel is the recommended deployment target for the Next.js frontend.
+
+### Steps
+
+1. Push your code to GitHub (already done).
+2. Go to [vercel.com](https://vercel.com) → **New Project**.
+3. Import the repository and set the **Root Directory** to `frontend`.
+4. Set the following **Environment Variables** in Vercel Project Settings:
+
+| Variable | Description |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | Your Azure backend URL, e.g. `https://your-app.azurewebsites.net/api/v1` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anon/public key |
+
+5. Click **Deploy**. Vercel will auto-detect Next.js and configure the build.
+
+> **Note:** Every push to `main` will trigger an automatic redeploy on Vercel.
+
+---
+
+## 3. Backend Deployment — Azure App Service (Docker)
+
+### Prerequisites
+
+- An Azure account with an active subscription.
+- Azure CLI installed: `az login`
+- A container registry (Azure Container Registry or Docker Hub).
+
+### Step 1: Build and Push the Docker Image
+
+#### Option A: Azure Container Registry (ACR) — Recommended
 
 ```bash
-docker build -t pdf-to-quiz .
-docker run -p 8000:8000 --env-file .env pdf-to-quiz
+# Create a Resource Group (skip if you already have one)
+az group create --name pdf-quiz-rg --location eastus
+
+# Create an Azure Container Registry
+az acr create --resource-group pdf-quiz-rg \
+              --name pdfquizregistry \
+              --sku Basic \
+              --admin-enabled true
+
+# Build directly in ACR (no local Docker required!)
+az acr build --registry pdfquizregistry \
+             --image pdf-to-quiz-backend:latest \
+             .
+```
+
+> ✅ `az acr build` uploads your source code to Azure and builds the image in the cloud. **Docker does not need to be installed locally.**
+
+#### Option B: GitHub Actions CI/CD (Fully Automated)
+
+Set up GitHub Actions to build and push on every push to `main`.  
+See [Azure documentation](https://docs.microsoft.com/en-us/azure/app-service/deploy-container-github-action).
+
+### Step 2: Create the App Service
+
+```bash
+# Create an App Service Plan (Linux, Basic tier)
+az appservice plan create \
+    --resource-group pdf-quiz-rg \
+    --name pdf-quiz-plan \
+    --is-linux \
+    --sku B2
+
+# Get ACR credentials
+ACR_PASSWORD=$(az acr credential show --name pdfquizregistry --query passwords[0].value -o tsv)
+
+# Create the Web App from the container image
+az webapp create \
+    --resource-group pdf-quiz-rg \
+    --plan pdf-quiz-plan \
+    --name pdf-to-quiz-api \
+    --deployment-container-image-name pdfquizregistry.azurecr.io/pdf-to-quiz-backend:latest \
+    --docker-registry-server-user pdfquizregistry \
+    --docker-registry-server-password "$ACR_PASSWORD"
+```
+
+### Step 3: Configure Environment Variables
+
+```bash
+az webapp config appsettings set \
+    --resource-group pdf-quiz-rg \
+    --name pdf-to-quiz-api \
+    --settings \
+        LLM_MODEL="mistral/mistral-small-latest" \
+        MISTRAL_API_KEY="your-mistral-api-key" \
+        DATABASE_URL="your-database-url" \
+        SUPABASE_URL="your-supabase-url" \
+        SUPABASE_ANON_KEY="your-anon-key" \
+        SUPABASE_SERVICE_ROLE_KEY="your-service-role-key" \
+        SUPABASE_JWT_SECRET="your-jwt-secret" \
+        PREFERRED_CHUNK_SIZE="1000" \
+        MIN_CHUNK_SIZE="700" \
+        MAX_CHUNK_SIZE="1500" \
+        CHUNK_OVERLAP="100" \
+        MIN_QUESTIONS_PER_CHUNK="2" \
+        MAX_QUESTIONS_PER_CHUNK="5" \
+        MAX_PAGES_PER_REQUEST="100" \
+        WORKERS="2" \
+        TIMEOUT="120" \
+        LOG_LEVEL="info" \
+        WEBSITES_PORT="8000"
+```
+
+> **`WEBSITES_PORT=8000`** tells Azure App Service which port the container listens on.
+
+### Step 4: Enable Continuous Deployment (Optional)
+
+```bash
+# Enable automatic redeployment when ACR image is updated
+az webapp deployment container config \
+    --resource-group pdf-quiz-rg \
+    --name pdf-to-quiz-api \
+    --enable-cd true
+```
+
+Your API will be live at: `https://pdf-to-quiz-api.azurewebsites.net`
+
+---
+
+## 4. Docker Deployment (Future / Other Machines)
+
+> **Note:** Docker is not available on the current development machine.  
+> Use this section when deploying on a machine with Docker installed.
+
+### Build Locally
+
+```bash
+docker build -t pdf-to-quiz-backend:latest .
+```
+
+### Run Locally
+
+```bash
+docker run --rm -p 8000:8000 \
+  --env-file .env \
+  pdf-to-quiz-backend:latest
+```
+
+### With Docker Compose
+
+```bash
+# Copy and fill in secrets
+cp .env.example .env
+
+# Start the backend
+docker compose up --build
 ```
 
 ---
 
-## Project Structure
+## Environment Variables Reference
 
-```
-app/
-  api/          # FastAPI route definitions
-  core/         # Settings / config
-  llm/          # LiteLLM wrapper
-  models/       # Pydantic schemas
-  parsers/      # PDF text extraction (PyMuPDF)
-  prompts/      # LLM prompt templates
-  services/     # Pipeline orchestration
-  utils/        # Text cleaner, token-aware chunker
-tests/          # Unit + integration tests
-main.py         # App entry point
-pyproject.toml  # uv project manifest
-Dockerfile
-```
+See [`.env.example`](.env.example) for the full list with descriptions.
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `MISTRAL_API_KEY` | ✅ | — | Mistral API key |
+| `DATABASE_URL` | ✅ | — | PostgreSQL connection string (Supabase) |
+| `SUPABASE_URL` | ✅ | — | Supabase project URL |
+| `SUPABASE_ANON_KEY` | ✅ | — | Supabase public/anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | — | Supabase service role key |
+| `SUPABASE_JWT_SECRET` | ✅ | — | JWT secret for token validation |
+| `LLM_MODEL` | ❌ | `mistral/mistral-small-latest` | LiteLLM model string |
+| `PREFERRED_CHUNK_SIZE` | ❌ | `1000` | Target tokens per chunk |
+| `CHUNK_OVERLAP` | ❌ | `100` | Overlap tokens between chunks |
+| `WORKERS` | ❌ | `2` | Gunicorn worker count (Docker only) |
+| `PORT` | ❌ | `8000` | Container port |
+| `LOG_LEVEL` | ❌ | `INFO` | Logging verbosity |
 
 ---
 
-## Roadmap (Post-MVP)
+## Pipeline Overview
 
-- [ ] OCR fallback for scanned/image-only PDFs (Docling or Tesseract)
-- [ ] Adaptive difficulty and spaced repetition
-- [ ] User accounts and quiz history
-- [ ] Analytics dashboard
-- [ ] Subscription tiers
+```
+PDF Upload
+    ↓
+Parse selected pages
+    ↓
+Page-level filter  →  drops TOC, Index, Copyright, blank pages
+    ↓
+Fixed semantic chunking  (1000 tokens, 100 overlap — document-driven)
+    ↓
+Chunk-level filter  →  drops non-educational chunks before LLM
+    ↓
+Compute QPQ = clamp(ceil(N / chunks), min=2, max=5)
+    ↓
+LLM (3 concurrent calls, 30 s timeout) → post-validate each question
+    ↓
+Deduplicate → Trim to N requested questions
+    ↓
+Top-up (only if still short) → Dedup → Trim
+    ↓
+Return exactly N questions  (or show banner if short)
+```

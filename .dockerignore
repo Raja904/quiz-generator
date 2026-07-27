@@ -1,0 +1,47 @@
+# ── Version control ────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Python ─────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Virtual environments (never copy into image) ────────────────────────────
+.venv/
+venv/
+env/
+.uv/
+
+# ── Local environment secrets ───────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Development / test files ────────────────────────────────────────────────
+tests/
+test_*.py
+analyze_run.py
+test.pdf
+analysis_report.txt
+filtered_output.txt
+
+# ── Frontend (deployed separately to Vercel) ────────────────────────────────
+frontend/
+
+# ── IDE / OS ────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── Logs ────────────────────────────────────────────────────────────────────
+*.log
+runs/

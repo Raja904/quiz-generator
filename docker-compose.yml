@@ -1,0 +1,82 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# docker-compose.yml
+#
+# FOR DOCUMENTATION AND FUTURE USE ONLY.
+# This file is NOT intended for local execution (Docker not available locally).
+#
+# Use this to:
+#   - Deploy the backend as a container on a machine with Docker installed.
+#   - Reference the environment variable structure for Azure App Service.
+#
+# External services (Supabase, Mistral) are NOT containerised here.
+# They remain cloud services accessed via environment variables.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pdf-to-quiz-backend:latest
+    container_name: pdf_to_quiz_backend
+
+    # Azure App Service reads WEBSITES_PORT; locally this maps host:container
+    ports:
+      - "8000:8000"
+
+    environment:
+      # ── LLM ──────────────────────────────────────────────────────────────
+      LLM_MODEL: "mistral/mistral-small-latest"
+      MISTRAL_API_KEY: "${MISTRAL_API_KEY}"          # set in .env or host env
+
+      # ── Database & Auth (Supabase) ────────────────────────────────────────
+      DATABASE_URL: "${DATABASE_URL}"
+      SUPABASE_URL: "${SUPABASE_URL}"
+      SUPABASE_ANON_KEY: "${SUPABASE_ANON_KEY}"
+      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY}"
+      SUPABASE_JWT_SECRET: "${SUPABASE_JWT_SECRET}"
+
+      # ── Chunking (fixed semantic) ─────────────────────────────────────────
+      PREFERRED_CHUNK_SIZE: "1000"
+      MIN_CHUNK_SIZE: "700"
+      MAX_CHUNK_SIZE: "1500"
+      CHUNK_OVERLAP: "100"
+      MIN_QUESTIONS_PER_CHUNK: "2"
+      MAX_QUESTIONS_PER_CHUNK: "5"
+
+      # ── Quiz limits ───────────────────────────────────────────────────────
+      MAX_PAGES_PER_REQUEST: "100"
+      DEFAULT_TOTAL_QUESTIONS: "20"
+
+      # ── Server ────────────────────────────────────────────────────────────
+      PORT: "8000"
+      WORKERS: "2"
+      TIMEOUT: "120"
+      LOG_LEVEL: "info"
+
+      # ── Optional: LangSmith tracing ───────────────────────────────────────
+      # LANGSMITH_TRACING: "true"
+      # LANGSMITH_API_KEY: "${LANGSMITH_API_KEY}"
+      # LANGSMITH_PROJECT: "pdf2quiz"
+      # LANGSMITH_ENDPOINT: "https://api.smith.langchain.com"
+
+    restart: unless-stopped
+
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    networks:
+      - pdf_quiz_net
+
+networks:
+  pdf_quiz_net:
+    driver: bridge
