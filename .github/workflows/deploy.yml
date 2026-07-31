@@ -67,7 +67,6 @@ jobs:
     needs: build # Only runs if build job succeeds
     environment:
       name: production
-      url: https://${{ secrets.AZURE_WEBAPP_NAME }}.azurewebsites.net
 
     steps:
       - name: Deploy container image to Azure Web App
