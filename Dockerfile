@@ -1,88 +1,92 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 1: Builder
-# Install dependencies in an isolated environment to keep the runtime image small.
+# Install all Python dependencies in an isolated venv.
+# Only the venv (not build tools) is carried into the runtime image.
 # ──────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS builder
 
-# Prevents Python from writing .pyc files and enables unbuffered stdout
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
 WORKDIR /build
 
-# Install build tools (needed for some packages with C extensions)
+# gcc + libpq-dev are needed to compile asyncpg and other C-extension deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv for fast, reliable dependency resolution
+# uv: fast, reliable Python package installer
 RUN pip install --no-cache-dir uv
 
-# Copy only the dependency manifest first for maximum layer caching.
-# If pyproject.toml hasn't changed, this layer is reused on rebuild.
-COPY pyproject.toml .
+# ── Dependency installation (layer-cached) ────────────────────────────────
+# Copy ONLY the files hatchling needs to resolve & install dependencies.
+# This layer is re-used on every rebuild where these files haven't changed.
+COPY pyproject.toml README.md ./
 
-# Install production dependencies only (no [dev] extras) into a venv
+# Hatchling (build backend) discovers packages listed under
+# [tool.hatch.build.targets.wheel] → packages = ["app"].
+# We create a minimal stub so it can build a wheel without the full source.
+# The real source is copied into the runtime image later.
+RUN mkdir -p app && touch app/__init__.py
+
+# Non-editable install (.) — resolves all deps from pyproject.toml + installs
+# gunicorn (process manager not declared in pyproject.toml — added here).
+# We do NOT use -e (editable) because:
+#   • editable installs write a .pth pointing to /build, which won't exist in runtime
+#   • the full source isn't present here anyway (only the stub above)
 RUN uv venv /app/.venv && \
     uv pip install --no-cache --python /app/.venv/bin/python \
         "gunicorn>=22.0" \
-        -e .
+        .
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Stage 2: Runtime
-# Minimal image — only runtime artefacts, no build tools or caches.
+# Minimal image — only the venv + application source, zero build tools.
 # ──────────────────────────────────────────────────────────────────────────────
 FROM python:3.11-slim AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    # Make the venv the active Python environment
     PATH="/app/.venv/bin:$PATH" \
-    # Gunicorn / Uvicorn defaults (overridable via Azure App Service config)
     PORT=8000 \
     WORKERS=2 \
     TIMEOUT=120
 
-# Minimal runtime system library (libpq for asyncpg)
+# libpq5 is the runtime dependency required by asyncpg (PostgreSQL driver)
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Copy the fully installed virtualenv from the builder stage
+# Copy the fully-resolved virtualenv from the builder stage
 COPY --from=builder /app/.venv /app/.venv
 
-# Copy application source — everything the app needs at runtime
+# Copy only the files the running application actually needs
 COPY main.py .
 COPY app/ ./app/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
 
-# ── Non-root user for security ─────────────────────────────────────────────
-# Azure App Service runs containers as root by default but best practice
-# is to drop privileges. The PORT binding is ≥1024, so no CAP_NET_BIND needed.
+# ── Non-root user (security best practice) ────────────────────────────────
 RUN groupadd --gid 1001 appgroup && \
     useradd  --uid 1001 --gid appgroup --shell /bin/sh --no-create-home appuser && \
     chown -R appuser:appgroup /app
 
 USER appuser
 
-# Azure App Service reads WEBSITES_PORT (or PORT) to route traffic.
+# Azure App Service routes traffic to this port (configured via WEBSITES_PORT)
 EXPOSE 8000
 
-# ── Health check ───────────────────────────────────────────────────────────
-# Checks the /api/v1/health endpoint every 30 s.
-# Gives the container 60 s to start before the first check.
+# ── Health check ──────────────────────────────────────────────────────────
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/api/v1/health')" || exit 1
 
-# ── Start command ──────────────────────────────────────────────────────────
-# Gunicorn as the process manager, Uvicorn as the ASGI worker class.
-# $WORKERS defaults to 2; override via Azure App Service → Configuration →
-# Application Settings with key WORKERS.
+# ── Production start command ──────────────────────────────────────────────
+# Gunicorn manages Uvicorn ASGI workers.
+# $WORKERS / $PORT / $TIMEOUT are overridable via Azure App Service → Configuration.
 CMD gunicorn main:app \
         --worker-class uvicorn.workers.UvicornWorker \
         --workers ${WORKERS} \
