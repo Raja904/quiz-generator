@@ -12,3 +12,4 @@ sqlalchemy>=2.0.0
 asyncpg>=0.29.0
 pyjwt>=2.8.0
 supabase>=2.5.0
+easyocr>=1.7.0
