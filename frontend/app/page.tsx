@@ -27,7 +27,7 @@ export default function Home() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <BrainCircuit className="h-5 w-5" />
             </div>
-            QuizGenius
+            Make My Quiz
           </div>
           <nav>
             <button
@@ -35,7 +35,7 @@ export default function Home() {
               disabled={loading}
               className="inline-flex h-9 items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow transition-colors hover:bg-slate-700 disabled:opacity-50"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get Started"}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Get Started Free"}
             </button>
           </nav>
         </div>
@@ -51,16 +51,17 @@ export default function Home() {
 
               <div className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-800">
                 <Sparkles className="mr-2 h-4 w-4" />
-                Turn your study materials into interactive quizzes
+                Turn your study materials into interactive quizzes ✨
               </div>
 
               <h1 className="max-w-4xl text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                Master your PDFs with{" "}
-                <span className="text-indigo-600">AI-Generated Quizzes</span>
+                Upload a PDF.{" "}
+                <span className="text-indigo-600">Get a Quiz.</span>{" "}
+                Learn Faster.
               </h1>
 
               <p className="max-w-2xl text-lg leading-relaxed text-slate-600">
-                Upload your lecture slides, notes, or textbooks and let our AI instantly create personalized quizzes to test your knowledge and improve retention.
+                Generate AI-powered quizzes from your notes, books, lecture slides, and study material in seconds.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mt-8">
@@ -73,7 +74,7 @@ export default function Home() {
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   ) : (
                     <>
-                      Sign in with Google
+                      Get Started Free
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </>
                   )}
@@ -131,10 +132,10 @@ export default function Home() {
         <div className="container mx-auto px-4 md:px-6 flex flex-col items-center justify-between gap-4 md:flex-row">
           <div className="flex items-center gap-2 font-semibold">
             <BrainCircuit className="h-5 w-5 text-indigo-600" />
-            <span>QuizGenius</span>
+            <span>Make My Quiz</span>
           </div>
           <p className="text-sm text-slate-500">
-            &copy; {new Date().getFullYear()} QuizGenius. All rights reserved.
+            &copy; {new Date().getFullYear()} Make My Quiz. All rights reserved.
           </p>
         </div>
       </footer>
