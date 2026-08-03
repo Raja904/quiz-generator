@@ -1,3 +1,26 @@
+# ── PyTorch CPU-only index ────────────────────────────────────────────────────
+# IMPORTANT: This line MUST come first.
+# It tells pip to also look at PyTorch's CPU-only wheel server when resolving
+# packages. Without this, pip downloads the default CUDA build from PyPI
+# (~2.5 GB including nvidia-cublas, nvidia-cudnn, triton, etc.) which
+# exceeds Azure App Service's build disk quota and causes "No space left
+# on device" during Oryx compression.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# ── PyTorch CPU wheels ────────────────────────────────────────────────────────
+# The +cpu suffix pins these to the CPU-only builds that live ONLY on the
+# PyTorch wheel index above. pip cannot resolve "+cpu" packages from regular
+# PyPI, so it is forced to use the lightweight CPU wheels (~250 MB total).
+#
+# These must be listed BEFORE easyocr so pip sees torch already satisfied
+# and does not attempt to re-resolve a CUDA build.
+#
+# Version matrix:  torch 2.3.0+cpu  <->  torchvision 0.18.0+cpu
+# (EasyOCR 1.7.x requires torch >= 1.9.2 — both are well within range.)
+torch==2.3.0+cpu
+torchvision==0.18.0+cpu
+
+# ── Application dependencies ──────────────────────────────────────────────────
 fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 python-multipart>=0.0.9
@@ -12,4 +35,9 @@ sqlalchemy>=2.0.0
 asyncpg>=0.29.0
 pyjwt>=2.8.0
 supabase>=2.5.0
+
+# ── OCR stack ─────────────────────────────────────────────────────────────────
+# easyocr pulls torch/torchvision as transitive deps. Because we listed the
+# CPU wheels above, pip honours the already-installed CPU torch and does NOT
+# download a CUDA build here.
 easyocr>=1.7.0

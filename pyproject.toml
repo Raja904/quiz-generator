@@ -19,6 +19,13 @@ dependencies = [
     "asyncpg>=0.29.0",
     "pyjwt>=2.8.0",
     "supabase>=2.5.0",
+    # OCR stack — torch/torchvision listed here without +cpu suffix because
+    # pyproject.toml does not support index-URL-scoped version tags.
+    # The CPU-only constraint is enforced via requirements.txt (which uses
+    # --extra-index-url https://download.pytorch.org/whl/cpu + +cpu suffix).
+    # Do NOT run `pip install -e .` alone in production; always use requirements.txt.
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
     "easyocr>=1.7.0",
 ]
 
