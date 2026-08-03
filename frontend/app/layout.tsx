@@ -8,8 +8,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "QuizGenius — AI PDF Quiz Generator",
-  description: "Turn any PDF into a smart quiz in seconds using AI.",
+  title: "Make My Quiz — AI PDF Quiz Generator",
+  description: "Upload your PDFs and instantly generate AI-powered quizzes. Study smarter with Make My Quiz.",
 };
 
 export default function RootLayout({
