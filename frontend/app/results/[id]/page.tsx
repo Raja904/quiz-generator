@@ -82,7 +82,7 @@ export default function ResultsPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <BrainCircuit className="h-5 w-5" />
             </div>
-            QuizGenius
+            Make My Quiz
           </Link>
           <Link 
             href="/dashboard"

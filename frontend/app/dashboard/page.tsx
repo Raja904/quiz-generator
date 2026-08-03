@@ -225,7 +225,7 @@ export default function Dashboard() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <BrainCircuit className="h-5 w-5" />
             </div>
-            QuizGenius
+            Make My Quiz
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm font-medium hidden sm:inline-block text-slate-600 dark:text-slate-400">
