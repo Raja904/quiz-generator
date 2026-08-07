@@ -19,18 +19,6 @@ dependencies = [
     "asyncpg>=0.29.0",
     "pyjwt>=2.8.0",
     "supabase>=2.5.0",
-    # OCR: torch and torchvision are NOT listed here.
-    # Reason: pyproject.toml cannot express index-URL-scoped version pins.
-    # Listing "torch>=2.0.0" here would let uv pull the CUDA build (~2.5 GB)
-    # from PyPI, exhausting Azure App Service's build disk.
-    #
-    # Instead:
-    # - [tool.uv.sources] below pins torch/torchvision to the CPU-only index.
-    # - easyocr declares torch/torchvision as its own deps; uv resolves them
-    #   via [tool.uv.sources] automatically.
-    # - requirements.txt also carries --extra-index-url + +cpu pins as a
-    #   belt-and-suspenders fallback for plain pip environments.
-    "easyocr>=1.7.0",
 ]
 
 [project.optional-dependencies]
@@ -51,25 +39,3 @@ artifacts = ["main.py"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
-
-# ── uv: CPU-only PyTorch ──────────────────────────────────────────────────────
-# Azure Oryx uses uv to resolve dependencies from this file.
-# Without this config, uv pulls torch from PyPI which defaults to the CUDA
-# build (~2.5 GB) causing "No space left on device" during Oryx compression.
-#
-# How it works:
-#   [[tool.uv.index]] registers the PyTorch CPU wheel server as a named index.
-#   explicit = true means uv ONLY looks at this index for packages mapped to it
-#   in [tool.uv.sources] — it will NOT fall back to PyPI for those packages.
-#   This guarantees CPU-only wheels are resolved for torch and torchvision.
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-# Map both packages exclusively to the CPU-only index.
-# easyocr depends on both; uv resolves them through these sources automatically.
-torch = { index = "pytorch-cpu" }
-torchvision = { index = "pytorch-cpu" }
