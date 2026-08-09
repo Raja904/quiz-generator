@@ -15,10 +15,10 @@
 # These must be listed BEFORE easyocr so pip sees torch already satisfied
 # and does not attempt to re-resolve a CUDA build.
 #
-# Version matrix:  torch 2.3.0+cpu  <->  torchvision 0.18.0+cpu
+# Version matrix:  torch 2.13.0+cpu  <->  torchvision 0.28.0+cpu
 # (EasyOCR 1.7.x requires torch >= 1.9.2 — both are well within range.)
-torch==2.3.0+cpu
-torchvision==0.18.0+cpu
+torch==2.13.0+cpu
+torchvision==0.28.0+cpu
 
 # ── Application dependencies ──────────────────────────────────────────────────
 fastapi>=0.115.0
