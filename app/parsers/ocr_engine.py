@@ -147,3 +147,62 @@ class RapidOCREngine(OCREngine):
             return ""
         except Exception as exc:
             raise RuntimeError(f"RapidOCR inference failed: {exc}") from exc
+
+
+# ── Native Subprocess OCR (Ocrad) implementation ──────────────────────────────
+
+class OcradEngine(OCREngine):
+    """
+    OCR backend using the highly optimized C utility 'ocrad'.
+    
+    This runs entirely outside the Python memory space, consuming almost zero
+    RAM (~15 MB). It is ideal for extremely resource-constrained environments
+    like Render's free tier.
+    
+    Requires `ocrad` to be installed on the host system:
+        Linux: sudo apt-get install ocrad
+        Windows: Download ocrad.exe and add to PATH
+    """
+
+    def run(self, image_bytes: bytes) -> str:
+        import io
+        import tempfile
+        import subprocess
+        try:
+            from PIL import Image, ImageEnhance  # noqa: PLC0415
+        except ImportError as exc:
+            raise RuntimeError("Pillow is required for Ocrad preprocessing.") from exc
+
+        # 1. Decode and preprocess the image (grayscale + contrast)
+        img = Image.open(io.BytesIO(image_bytes))
+        img = img.convert("L")  # Convert to grayscale
+        img = ImageEnhance.Contrast(img).enhance(1.5)
+
+        # 2. Save as PGM (Portable GrayMap) to a temporary file
+        # ocrad natively understands PGM format.
+        with tempfile.NamedTemporaryFile(suffix=".pgm", delete=False) as tmp:
+            tmp_name = tmp.name
+            img.save(tmp_name, format="PPM")  # Pillow writes PGM if mode is 'L'
+
+        # 3. Execute the native ocrad binary
+        try:
+            result = subprocess.run(
+                ["ocrad", tmp_name],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return result.stdout.strip()
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                "'ocrad' binary not found. Please install it on your system "
+                "(e.g., 'sudo apt-get install ocrad' on Ubuntu)."
+            ) from exc
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(f"ocrad execution failed: {exc.stderr}") from exc
+        finally:
+            # 4. Clean up the temporary file
+            try:
+                os.remove(tmp_name)
+            except OSError:
+                pass
