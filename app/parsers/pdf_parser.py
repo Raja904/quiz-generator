@@ -16,7 +16,7 @@ Per-page OCR fallback:
   - Primary: page.get_text() via PyMuPDF.
   - If a page yields fewer than OCR_THRESHOLD characters of non-whitespace
     text, the page is rendered to a PNG image and passed to the configured
-    OCR engine (default: EasyOCREngine).
+    OCR engine (default: RapidOCREngine).
   - OCR happens ONLY for pages that need it.
   - The result is merged seamlessly — downstream chunking and quiz
     generation see a single text blob with no structural difference.
@@ -143,14 +143,14 @@ def _ocr_page(page, filename: str, page_num_1indexed: int, ocr_engine) -> str:
 
 def _build_ocr_engine():
     """
-    Build the default OCR engine (EasyOCR).
+    Build the default OCR engine (RapidOCR).
 
-    Returns None if EasyOCR is not installed, so callers can degrade
+    Returns None if RapidOCR is not installed, so callers can degrade
     gracefully rather than crashing at import time.
     """
     try:
-        from app.parsers.ocr_engine import EasyOCREngine  # noqa: PLC0415
-        return EasyOCREngine(languages=["en"], gpu=False)
+        from app.parsers.ocr_engine import RapidOCREngine  # noqa: PLC0415
+        return RapidOCREngine()
     except Exception as exc:
         logger.warning(
             "OCR engine could not be initialised (%s). "
@@ -174,7 +174,7 @@ def parse_pdf_range(
     For each page:
       1. Try PyMuPDF's page.get_text() (fast, native).
       2. If the result has fewer than OCR_THRESHOLD non-whitespace characters,
-         render the page to an image and run EasyOCR on it.
+         render the page to an image and run RapidOCR on it.
 
     OCR is only run on pages that need it. All other aspects of the API
     contract remain identical to the original implementation.
@@ -198,7 +198,7 @@ def parse_pdf_range(
     start = time.perf_counter()
     doc = _open_pdf(file_bytes, filename)
 
-    # Lazily build OCR engine; None if EasyOCR not installed.
+    # Lazily build OCR engine; None if RapidOCR not installed.
     ocr_engine = _build_ocr_engine()
 
     try:

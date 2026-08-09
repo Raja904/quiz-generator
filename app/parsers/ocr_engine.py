@@ -6,15 +6,15 @@ Modular OCR interface for scanned PDF pages.
 Design:
   - Defines an abstract base class (OCREngine) so any OCR backend can be
     swapped in by implementing a single method: `run(image_bytes) -> str`.
-  - Ships with one concrete implementation: EasyOCREngine.
-  - EasyOCR is preferred over Tesseract for Azure App Service deployment
-    because it ships as a pure-Python/PyTorch package with no system-level
-    binary dependencies.
+  - Ships with one concrete implementation: RapidOCREngine.
+  - RapidOCR (ONNX runtime) is preferred for Azure/Render App Service 
+    deployment because it is extremely lightweight and avoids PyTorch/CUDA 
+    OOM crashes on free tiers (512MB RAM).
 
 Usage (from pdf_parser.py):
-    from app.parsers.ocr_engine import EasyOCREngine
+    from app.parsers.ocr_engine import RapidOCREngine
 
-    engine = EasyOCREngine()                  # lazily loads model on first call
+    engine = RapidOCREngine()                 # lazily loads model on first call
     text   = engine.run(png_bytes_of_a_page)  # returns str
 """
 
@@ -43,49 +43,35 @@ class OCREngine(abc.ABC):
         """Run OCR on *image_bytes* and return the extracted text."""
 
 
-# ── EasyOCR implementation ────────────────────────────────────────────────────
+# ── RapidOCR (ONNX) implementation ────────────────────────────────────────────
 
-class EasyOCREngine(OCREngine):
+class RapidOCREngine(OCREngine):
     """
-    OCR backend powered by EasyOCR.
+    OCR backend powered by rapidocr-onnxruntime.
 
-    The EasyOCR Reader object is expensive to construct (it loads a neural
-    network model) so it is lazily instantiated on the first call and
-    cached for the lifetime of the process.
-
-    Args:
-        languages: List of ISO 639-1 language codes to recognise.
-                   Defaults to English only. Add more as needed,
-                   e.g. ["en", "hi"] for Hindi support.
-        gpu:       Enable GPU inference. Defaults to False because Azure
-                   App Service (Basic/Standard) does not have GPUs.
+    It is extremely lightweight and uses CPU ONNX runtime. The model is lazily 
+    instantiated on the first call and cached.
     """
 
-    def __init__(self, languages: list[str] | None = None, *, gpu: bool = False):
-        self._languages: list[str] = languages or ["en"]
-        self._gpu: bool = gpu
-        self._reader = None  # lazy-init; None until first call
+    def __init__(self):
+        self._engine = None  # lazy-init; None until first call
 
     # -- private --
 
-    def _get_reader(self):
-        if self._reader is None:
+    def _get_engine(self):
+        if self._engine is None:
             try:
-                import easyocr  # noqa: PLC0415
+                from rapidocr_onnxruntime import RapidOCR  # noqa: PLC0415
             except ImportError as exc:
                 raise RuntimeError(
-                    "easyocr is not installed. "
-                    "Add 'easyocr>=1.7.0' to your dependencies."
+                    "rapidocr-onnxruntime is not installed. "
+                    "Add 'rapidocr-onnxruntime>=1.3.0' to your dependencies."
                 ) from exc
 
-            logger.info(
-                "Initialising EasyOCR reader | languages=%s gpu=%s",
-                self._languages,
-                self._gpu,
-            )
-            self._reader = easyocr.Reader(self._languages, gpu=self._gpu)
-            logger.info("EasyOCR reader ready.")
-        return self._reader
+            logger.info("Initialising RapidOCR (ONNX) engine...")
+            self._engine = RapidOCR()
+            logger.info("RapidOCR engine ready.")
+        return self._engine
 
     # -- public --
 
@@ -98,17 +84,13 @@ class EasyOCREngine(OCREngine):
           1. Decode PNG/JPEG bytes → Pillow Image
           2. Convert to grayscale (eliminates colour noise)
           3. Enhance contrast (makes text edges sharper)
-          4. Re-encode as PNG bytes for EasyOCR
+          4. Re-encode as PNG bytes for OCR
 
         Args:
             image_bytes: Raw image bytes (PNG or JPEG).
 
         Returns:
             Preprocessed PNG bytes.
-
-        Note:
-            Pillow is a transitive dependency of EasyOCR so it will always
-            be present when this module is active.
         """
         try:
             import io
@@ -117,13 +99,9 @@ class EasyOCREngine(OCREngine):
             img = Image.open(io.BytesIO(image_bytes))
 
             # Step 1 — Grayscale
-            # Removes colour channels that confuse OCR models trained on text.
             img = ImageOps.grayscale(img)
 
             # Step 2 — Contrast enhancement
-            # Factor >1.0 increases contrast. 1.5 is a reliable middle ground:
-            # strong enough to sharpen faint text, mild enough not to blow out
-            # high-contrast pages (e.g. black text on white background).
             img = ImageEnhance.Contrast(img).enhance(1.5)
 
             # Re-encode as PNG
@@ -132,30 +110,32 @@ class EasyOCREngine(OCREngine):
             return buf.getvalue()
 
         except ImportError:
-            # Pillow not available — return original bytes unchanged.
             logger.warning("Pillow not available; skipping image preprocessing.")
             return image_bytes
         except Exception as exc:
-            # Preprocessing failure is non-fatal — fall back to raw bytes.
             logger.warning("Image preprocessing failed (%s); using raw image.", exc)
             return image_bytes
 
     def run(self, image_bytes: bytes) -> str:
         """
-        Preprocess *image_bytes* then run EasyOCR.
+        Preprocess *image_bytes* then run RapidOCR.
 
         Full pipeline:
-          raw PNG → grayscale → contrast enhance → EasyOCR inference → str
+          raw PNG → grayscale → contrast enhance → RapidOCR inference → str
 
         Returns:
             Extracted text joined into a single string (one line per item).
         Raises:
-            RuntimeError: If EasyOCR is not installed or inference fails.
+            RuntimeError: If RapidOCR is not installed or inference fails.
         """
-        reader = self._get_reader()
+        engine = self._get_engine()
         preprocessed = self.preprocess(image_bytes)
         try:
-            results = reader.readtext(preprocessed, detail=0, paragraph=True)
-            return "\n".join(str(r) for r in results)
+            # rapidocr returns (result, elapse_time)
+            # result is a list of [box, text, confidence]
+            result, _ = engine(preprocessed)
+            if result:
+                return "\n".join(str(r[1]) for r in result if r)
+            return ""
         except Exception as exc:
-            raise RuntimeError(f"EasyOCR inference failed: {exc}") from exc
+            raise RuntimeError(f"RapidOCR inference failed: {exc}") from exc
