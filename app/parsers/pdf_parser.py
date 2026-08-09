@@ -67,7 +67,7 @@ class PDFParseError(Exception):
 def _open_pdf(file_bytes: bytes, filename: str):
     """Open *file_bytes* as a fitz document; raise PDFParseError on failure."""
     try:
-        import fitz  # PyMuPDF  # noqa: PLC0415
+        import pymupdf as fitz  # noqa: PLC0415
     except ImportError as exc:
         raise PDFParseError(
             "PyMuPDF is not installed. Run: pip install pymupdf"
@@ -115,7 +115,7 @@ def _ocr_page(page, filename: str, page_num_1indexed: int, ocr_engine) -> str:
         return ""
 
     try:
-        import fitz  # noqa: PLC0415
+        import pymupdf as fitz  # noqa: PLC0415
         # Render page to PNG at the configured DPI
         mat = fitz.Matrix(OCR_DPI / 72, OCR_DPI / 72)
         pix = page.get_pixmap(matrix=mat, colorspace=fitz.csRGB)
@@ -245,6 +245,10 @@ def parse_pdf_range(
             else:
                 if raw_text.strip():
                     pages_text.append(raw_text)
+
+            # Explicitly collect garbage after each page to free up ONNX and PyMuPDF memory
+            import gc
+            gc.collect()
 
     finally:
         doc.close()

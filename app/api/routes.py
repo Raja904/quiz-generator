@@ -130,7 +130,7 @@ async def pdf_info(
     # We only need page count + a rough token estimate.
     # Sampling up to 5 pages is sufficient for estimation and is nearly instant.
     try:
-        import fitz  # PyMuPDF
+        import pymupdf as fitz  # PyMuPDF
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         total_pages: int = len(doc)
 

@@ -22,6 +22,14 @@ from __future__ import annotations
 
 import abc
 import logging
+import os
+
+# Limit threading for OCR to prevent out-of-memory (OOM) and CPU spikes on Render's free tier (512MB RAM).
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 logger = logging.getLogger(__name__)
 
