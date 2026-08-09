@@ -69,3 +69,5 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1")
+# Mount at root as well to catch frontend requests missing the /api/v1 suffix
+app.include_router(router)
