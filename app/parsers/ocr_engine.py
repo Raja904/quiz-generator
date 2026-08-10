@@ -193,10 +193,13 @@ class OcradEngine(OCREngine):
             result = subprocess.run(
                 [ocrad_cmd, tmp_name],
                 capture_output=True,
-                text=True,
+                # NOTE: Do NOT use text=True — ocrad outputs Latin-1 encoded text,
+                # not UTF-8, so we decode manually to avoid UnicodeDecodeError.
                 check=True
             )
-            return result.stdout.strip()
+            # Decode as latin-1 (ISO-8859-1), then re-encode to clean unicode
+            raw_text = result.stdout.decode("latin-1", errors="replace")
+            return raw_text.strip()
         except FileNotFoundError as exc:
             raise RuntimeError(
                 f"'{ocrad_cmd}' binary not found. Please compile it using build.sh "
