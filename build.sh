@@ -8,8 +8,8 @@ pip install -r requirements.txt
 echo "==> Setting up zero-RAM OCR (Ocrad)..."
 if [ ! -f "ocrad_bin" ]; then
     echo "Downloading and compiling ocrad from source..."
-    # Download GNU Ocrad source code
-    curl -O http://ftp.gnu.org/gnu/ocrad/ocrad-0.28.tar.gz
+    # Download GNU Ocrad source code (use -L to follow redirects)
+    curl -LO http://ftp.gnu.org/gnu/ocrad/ocrad-0.28.tar.gz
     tar -xzf ocrad-0.28.tar.gz
     cd ocrad-0.28
     
