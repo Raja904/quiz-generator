@@ -185,9 +185,13 @@ class OcradEngine(OCREngine):
             img.save(tmp_name, format="PPM")  # Pillow writes PGM if mode is 'L'
 
         # 3. Execute the native ocrad binary
+        # Check if we have the compiled binary from build.sh (Render), otherwise fallback to global PATH
+        import shutil
+        ocrad_cmd = "./ocrad_bin" if os.path.exists("ocrad_bin") else "ocrad"
+        
         try:
             result = subprocess.run(
-                ["ocrad", tmp_name],
+                [ocrad_cmd, tmp_name],
                 capture_output=True,
                 text=True,
                 check=True
@@ -195,8 +199,8 @@ class OcradEngine(OCREngine):
             return result.stdout.strip()
         except FileNotFoundError as exc:
             raise RuntimeError(
-                "'ocrad' binary not found. Please install it on your system "
-                "(e.g., 'sudo apt-get install ocrad' on Ubuntu)."
+                f"'{ocrad_cmd}' binary not found. Please compile it using build.sh "
+                "or install it globally."
             ) from exc
         except subprocess.CalledProcessError as exc:
             raise RuntimeError(f"ocrad execution failed: {exc.stderr}") from exc
