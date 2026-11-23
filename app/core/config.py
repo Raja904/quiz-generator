@@ -17,8 +17,8 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ── LLM ───────────────────────────────────────────────────────────────────
-    llm_model: str = "mistral/mistral-small-latest"
+    # ── LLM ────────────────────────────────────────────────────────────────
+    llm_model: str = "qwen/qwen3.8-27b"
 
     # ── Semantic chunking (fixed, independent of question count) ──────────────
     preferred_chunk_size: int = 1000  # target tokens per chunk
@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     max_chunk_size: int = 1500        # ceiling
     chunk_overlap: int = 100          # fixed overlap between adjacent chunks
 
-    # ── Questions per chunk (over-generate then trim) ──────────────────────────
+    # ── Questions per chunk (over-generate then trim) ─────────────────────────
     min_questions_per_chunk: int = 2
     max_questions_per_chunk: int = 5
 
@@ -37,14 +37,14 @@ class Settings(BaseSettings):
     supabase_jwt_secret: str = ""
     database_url: str = ""
 
-    # ── Quiz ──────────────────────────────────────────────────────────────────
+    # ── Quiz ─────────────────────────────────────────────────────────────────
     default_total_questions: int = 20
     allowed_question_counts: list[int] = [10, 20, 30, 50, 75, 100, 150]
 
     # ── Page range limits ─────────────────────────────────────────────────────
     max_pages_per_request: int = 100   # hard cap on selected page range size
 
-    # ── App ───────────────────────────────────────────────────────────────────
+    # ── App ──────────────────────────────────────────────────────────────────
     log_level: str = "INFO"
     app_version: str = "0.1.0"
 
