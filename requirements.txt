@@ -15,6 +15,6 @@ supabase>=2.5.0
 
 # ── OCR stack ───────────────────────────────────────────────────────────
 # Lightweight OCR using ONNX Runtime, replacing PyTorch-based EasyOCR
-to avoid OOM crashes on Render's 512MB RAM free tier.
+# to avoid OOM crashes on Render's 512MB RAM free tier.
 rapidocr-onnxruntime>=1.2.0
 Pillow>=10.0.0
