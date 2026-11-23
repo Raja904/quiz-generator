@@ -298,7 +298,7 @@ async def generate_quiz(
     Args:
         file_bytes:       Raw bytes of the uploaded PDF.
         filename:         Original filename (for logging/metadata only).
-        llm_model:        LiteLLM model string.
+        llm_model:        Groq model string (e.g. ``qwen/qwen3.8-27b``).
         total_questions:  Number of questions to generate.
         start_page:       1-indexed inclusive start page (default: 1).
         end_page:         1-indexed inclusive end page (default: last page).

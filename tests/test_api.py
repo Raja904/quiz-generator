@@ -86,7 +86,7 @@ def _mock_llm_record(**kwargs) -> LLMCallRecord:
         chunk_index=kwargs.get("chunk_index", 0),
         system_prompt=kwargs.get("system_prompt", "system"),
         user_prompt=kwargs.get("user_prompt", "user"),
-        model=kwargs.get("model", "mistral/mistral-small-latest"),
+        model=kwargs.get("model", "qwen/qwen3.8-27b"),
         raw_response=json.dumps(_MOCK_QUESTIONS),
         parsed_questions=_MOCK_QUESTIONS,
         latency_seconds=0.5,
